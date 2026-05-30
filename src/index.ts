@@ -2848,15 +2848,36 @@ const wzh = (d: Uint8Array, b: number, f: ZHF, fn: Uint8Array, u: boolean, c: nu
   return b;
 }
 
-// allocate ZIP output with enough space for EOCD or ZIP64 EOCD + locator + EOCD
-const wzfo = (c: number, d: number, e: number) => {
+/**
+ * Allocate ZIP output with enough space for EOCD, or ZIP64 EOCD + locator + EOCD.
+ *
+ * @param c Number of files / central directory entries.
+ * @param d Central directory size.
+ * @param e Central directory absolute offset in the complete ZIP archive.
+ * @param k Number of bytes to allocate before the footer in this output buffer.
+ *          For zip()/zipSync(), this is local data + central directory size.
+ *          For streaming Zip.e(), this is only central directory size because
+ *          local data has already been emitted.
+ */
+const wzfo = (c: number, d: number, e: number, k: number) => {
   const fl = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
-  const out = new u8(d + e + fl);
+  const out = new u8(k + fl);
   return out;
 }
 
-// write zip footer (end of central directory)
-const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number) => {
+/**
+ * Write ZIP footer: EOCD, or ZIP64 EOCD + ZIP64 locator + EOCD.
+ *
+ * @param o Output buffer to write into.
+ * @param b Offset inside `o` where the footer starts.
+ * @param c Number of files / central directory entries.
+ * @param d Central directory size.
+ * @param e Central directory absolute offset in the complete ZIP archive.
+ * @param bo ZIP64 EOCD absolute offset in the complete ZIP archive.
+ *           Defaults to `b`, which is correct when `o` starts at archive offset 0
+ *           as in zip()/zipSync(). Streaming Zip.e() must pass `e + d`.
+ */
+const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number, bo: number = b) => {
   const z = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF;
 
   if (z) {
@@ -2875,7 +2896,7 @@ const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number) => {
     // ZIP64 end of central directory locator
     wbytes(o, b + 56, 0x7064B50);     // signature
     // wbytes(o, b + 60, 0);          // disk with ZIP64 EOCD
-    wbytes8(o, b + 64, b);           // offset of ZIP64 EOCD
+    wbytes8(o, b + 64, bo);           // offset of ZIP64 EOCD (absolute archive offset)
     wbytes(o, b + 72, 1);             // total disks
     b += 76;
     c = 0xFFFF;
@@ -3266,14 +3287,21 @@ export class Zip {
   }
 
   private e() {
-    let bt = 0, l = 0, tl = 0;
-    for (const f of this.u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0);
-    const out = wzfo(this.u.length, tl, l);
-    for (const f of this.u) {
-      wzh(out, bt, f, f.f, f.u, -f.c - 2, l, f.o);
-      bt += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), l += f.b;
-    }
-    wzf(out, bt, this.u.length, tl, l)
+    const u = this.u;
+    let o2 = 0, s2 = 0, o1 = 0, s1 = 0;
+    for (const f of u) s1 += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), o1 += f.b;
+    // Streaming Zip has already emitted local headers + file data, so allocate
+    // only central directory + footer. o1 is still passed so wzfo can decide
+    // whether ZIP64 is needed due to centralDirectoryOffset overflow.
+    const out = wzfo(u.length, s1, o1, s1); // k = s1 for streaming
+    for (const f of u) s2 = wzh(out, s2, f, f.f, f.u, -f.c - 2, o2, f.o), o2 += f.b;
+    // o1/o2 = centralDirectoryOffset: absolute archive offset where this final
+    //         chunk's central directory starts.
+    // s1    = predicted centralDirectorySize used for allocation.
+    // s2    = actual centralDirectorySize, i.e. write cursor after writing all
+    //         central directory entries into this final chunk.
+    // o2+s2 = absolute archive offset of ZIP64 EOCD, used by the ZIP64 locator.
+    wzf(out, s2, u.length, s2, o2, o2 + s2);
     this.ondata(null, out, true);
     this.d = 2;
   }
@@ -3326,7 +3354,7 @@ export function zip(data: AsyncZippable, opts: AsyncZipOptions | FlateCallback, 
   mt(() => { cbd = cb; });
   const cbf = () => {
     const oe = o, cdl = tot - o;
-    const out = wzfo(files.length, cdl, oe);
+    const out = wzfo(files.length, cdl, oe, tot);
     tot = 0;
     for (let i = 0; i < slft; ++i) {
       const f = files[i];
@@ -3426,7 +3454,7 @@ export function zipSync(data: Zippable, opts?: ZipOptions) {
     tot += 76 + 2 * (s + exl) + (ms || 0) + l;
   }
   const oe = o, cdl = tot - o;
-  const out = wzfo(files.length, cdl, oe);
+  const out = wzfo(files.length, cdl, oe, tot);
   for (let i = 0; i < files.length; ++i) {
     const f = files[i];
     wzh(out, f.o, f, f.f, f.u, f.c.length);
