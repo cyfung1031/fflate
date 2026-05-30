@@ -1185,9 +1185,14 @@ const b4 = (d: Uint8Array, b: number) => (d[b] | (d[b + 1] << 8) | (d[b + 2] << 
 // read 8 bytes
 const b8 = (d: Uint8Array, b: number) => b4(d, b) + (b4(d, b + 4) * 4294967296);
 
-// write bytes
+// write bytes, assumes zero-filled output
 const wbytes = (d: Uint8Array, b: number, v: number) => {
   for (; v; ++b) d[b] = v, v >>>= 8;
+}
+
+// write 64-bit little-endian integer, assumes zero-filled output
+const wbytes8 = (d: Uint8Array, b: number, v: number) => {
+  for (; v; v /= 256) v -= d[b++] = v % 256;
 }
 
 // gzip header
@@ -2841,12 +2846,6 @@ const wzh = (d: Uint8Array, b: number, f: ZHF, fn: Uint8Array, u: boolean, c: nu
   }
   if (col) d.set(co, b), b += col;
   return b;
-}
-
-// write 64-bit little-endian integer, safe up to Number.MAX_SAFE_INTEGER
-const wbytes8 = (d: Uint8Array, b: number, v: number) => {
-  wbytes(d, b, v);
-  wbytes(d, b + 4, Math.floor(v / 0x100000000));
 }
 
 // allocate ZIP output with enough space for EOCD or ZIP64 EOCD + locator + EOCD
