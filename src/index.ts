@@ -2849,15 +2849,18 @@ const wzh = (d: Uint8Array, b: number, f: ZHF, fn: Uint8Array, u: boolean, c: nu
 }
 
 /**
- * Allocate ZIP output with enough space for EOCD, or ZIP64 EOCD + locator + EOCD.
+ * Allocates the ZIP output buffer with enough space for the trailing footer.
+ * Dynamically handles classic EOCD (22 bytes) or ZIP64 EOCD + locator (98 bytes).
  *
- * @param c Number of files / central directory entries.
- * @param d Central directory size.
- * @param e Central directory absolute offset in the complete ZIP archive.
- * @param k Number of bytes to allocate before the footer in this output buffer.
- *          For zip()/zipSync(), this is local data + central directory size.
- *          For streaming Zip.e(), this is only central directory size because
- *          local data has already been emitted.
+ * Parameters:
+ * @param c - Number of files / Central Directory entries.
+ * @param d - Total Central Directory size.
+ * @param e - Absolute Central Directory offset in the complete ZIP archive.
+ * @param k - Number of bytes to allocate before the footer in this specific buffer.
+ *
+ * Note on `k`:
+ * - For full-buffer generation, `k` includes local headers + file data + Central Directory.
+ * - For streaming, `k` is just the Central Directory size (`d`).
  */
 const wzfo = (c: number, d: number, e: number, k: number) => {
   const fl = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
@@ -2866,16 +2869,20 @@ const wzfo = (c: number, d: number, e: number, k: number) => {
 }
 
 /**
- * Write ZIP footer: EOCD, or ZIP64 EOCD + ZIP64 locator + EOCD.
+ * Writes the ZIP trailing footers: classic EOCD, or ZIP64 EOCD + locator + classic EOCD.
  *
- * @param o Output buffer to write into.
- * @param b Offset inside `o` where the footer starts.
- * @param c Number of files / central directory entries.
- * @param d Central directory size.
- * @param e Central directory absolute offset in the complete ZIP archive.
- * @param bo ZIP64 EOCD absolute offset in the complete ZIP archive.
- *           Defaults to `b`, which is correct when `o` starts at archive offset 0
- *           as in zip()/zipSync(). Streaming Zip.e() must pass `e + d`.
+ * Parameters:
+ * @param o  - Output buffer to write into.
+ * @param b  - Offset inside `o` where the footer data starts.
+ * @param c  - Number of files / Central Directory entries.
+ * @param d  - Total Central Directory size.
+ * @param e  - Absolute Central Directory offset in the complete ZIP archive.
+ * @param bo - Absolute archive offset where the ZIP64 EOCD record begins.
+ *
+ * Note on `bo`:
+ * In full-buffer generation, `b` and `bo` are identical. In streaming generation, 
+ * `o` only contains the trailing chunk, meaning the ZIP64 locator needs the 
+ * absolute archive offset (`bo`) rather than the local buffer offset (`b`).
  */
 const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number, bo: number) => {
   const z = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF;
@@ -3286,21 +3293,24 @@ export class Zip {
     this.d = 3;
   }
 
+  /**
+   * Emits the final streaming ZIP chunk (Central Directory + EOCD footers).
+   * Local headers and file data are already emitted; this writes the trailer.
+   *
+   * Two-pass execution:
+   * - Pass 1: Predicts Central Directory size (`tl`) and absolute offset (`p`) 
+   * for allocation and ZIP64 decisions.
+   * - Pass 2: Writes the Central Directory, tracking actual size (`bt`) and 
+   * running absolute offset (`l`).
+   *
+   * For ZIP64, the locator uses `l + bt` as the absolute offset of the ZIP64 EOCD.
+   */
   private e() {
     const u = this.u;
     let bt = 0, l = 0, tl = 0, p = 0;
     for (const f of u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), p += f.b;
-    // Streaming Zip has already emitted local headers + file data, so allocate
-    // only central directory + footer. `p` is still passed so wzfo can decide
-    // whether ZIP64 is needed due to centralDirectoryOffset overflow.
-    const out = wzfo(u.length, tl, p, tl); // k = `tl` for streaming
+    const out = wzfo(u.length, tl, p, tl);
     for (const f of u) bt = wzh(out, bt, f, f.f, f.u, -f.c - 2, l, f.o), l += f.b;
-    // l/p = centralDirectoryOffset: absolute archive offset where this final
-    //         chunk's central directory starts.
-    // tl    = predicted centralDirectorySize used for allocation.
-    // bt    = actual centralDirectorySize, i.e. write cursor after writing all
-    //         central directory entries into this final chunk.
-    // l+bt = absolute archive offset of ZIP64 EOCD, used by the ZIP64 locator.
     wzf(out, bt, u.length, bt, l, l + bt);
     this.ondata(null, out, true);
     this.d = 2;
