@@ -2843,13 +2843,53 @@ const wzh = (d: Uint8Array, b: number, f: ZHF, fn: Uint8Array, u: boolean, c: nu
   return b;
 }
 
-// write zip footer (end of central directory)
+// write 64-bit little-endian integer, safe up to Number.MAX_SAFE_INTEGER
+const wbytes8 = (d: Uint8Array, b: number, v: number) => {
+  wbytes(d, b, v);
+  wbytes(d, b + 4, Math.floor(v / 0x100000000));
+}
+
+// ZIP footer length needed for EOCD or ZIP64 EOCD + locator + EOCD
+const wzfs = (c: number, d: number, e: number) =>
+  c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
+
+// write zip footer (end of central directory); returns bytes written
 const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number) => {
-  wbytes(o, b, 0x6054B50); // skip disk
-  wbytes(o, b + 8, c);
-  wbytes(o, b + 10, c);
-  wbytes(o, b + 12, d);
-  wbytes(o, b + 16, e);
+  const z = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF;
+
+  if (z) {
+    const zb = b;
+
+    // ZIP64 end of central directory record
+    wbytes(o, b, 0x6064B50);          // signature
+    wbytes8(o, b + 4, 44);            // size of remaining record
+    wbytes(o, b + 12, 45);            // version made by / needed
+    wbytes(o, b + 14, 45);
+    wbytes(o, b + 16, 0);             // disk number
+    wbytes(o, b + 20, 0);             // disk with central directory
+    wbytes8(o, b + 24, c);            // entries on this disk
+    wbytes8(o, b + 32, c);            // total entries
+    wbytes8(o, b + 40, d);            // central directory size
+    wbytes8(o, b + 48, e);            // central directory offset
+    b += 56;
+
+    // ZIP64 end of central directory locator
+    wbytes(o, b, 0x7064B50);          // signature
+    wbytes(o, b + 4, 0);              // disk with ZIP64 EOCD
+    wbytes8(o, b + 8, zb);            // offset of ZIP64 EOCD
+    wbytes(o, b + 16, 1);             // total disks
+    b += 20;
+  }
+
+  // classic EOCD, with sentinels when ZIP64 is used
+  wbytes(o, b, 0x6054B50);            // skip disk
+  wbytes(o, b + 4, 0);                // disk fields
+  wbytes(o, b + 8, z ? 0xFFFF : c);
+  wbytes(o, b + 10, z ? 0xFFFF : c);
+  wbytes(o, b + 12, z ? 0xFFFFFFFF : d);
+  wbytes(o, b + 16, z ? 0xFFFFFFFF : e);
+  wbytes(o, b + 20, 0);               // comment length
+  return z ? 98 : 22;
 }
 
 /**
@@ -3228,7 +3268,8 @@ export class Zip {
   private e() {
     let bt = 0, l = 0, tl = 0;
     for (const f of this.u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0);
-    const out = new u8(tl + 22);
+    const fl = wzfs(this.u.length, tl, l);
+    const out = new u8(tl + fl);
     for (const f of this.u) {
       wzh(out, bt, f, f.f, f.u, -f.c - 2, l, f.o);
       bt += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), l += f.b;
@@ -3285,7 +3326,8 @@ export function zip(data: AsyncZippable, opts: AsyncZipOptions | FlateCallback, 
   }
   mt(() => { cbd = cb; });
   const cbf = () => {
-    const out = new u8(tot + 22), oe = o, cdl = tot - o;
+    const oe = o, cdl = tot - o;
+    const out = new u8(tot + wzfs(files.length, cdl, oe));
     tot = 0;
     for (let i = 0; i < slft; ++i) {
       const f = files[i];
@@ -3384,7 +3426,8 @@ export function zipSync(data: Zippable, opts?: ZipOptions) {
     o += 30 + s + exl + l;
     tot += 76 + 2 * (s + exl) + (ms || 0) + l;
   }
-  const out = new u8(tot + 22), oe = o, cdl = tot - o;
+  const oe = o, cdl = tot - o;
+  const out = new u8(tot + wzfs(files.length, cdl, oe));
   for (let i = 0; i < files.length; ++i) {
     const f = files[i];
     wzh(out, f.o, f, f.f, f.u, f.c.length);
