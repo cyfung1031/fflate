@@ -2850,8 +2850,11 @@ const wbytes8 = (d: Uint8Array, b: number, v: number) => {
 }
 
 // ZIP footer length needed for EOCD or ZIP64 EOCD + locator + EOCD
-const wzfs = (c: number, d: number, e: number) =>
-  c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
+const wzfo = (c: number, d: number, e: number) => {
+  const fl = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
+  const out = new u8(d + e + fl);
+  return out;
+}
 
 // write zip footer (end of central directory)
 const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number) => {
@@ -3266,8 +3269,7 @@ export class Zip {
   private e() {
     let bt = 0, l = 0, tl = 0;
     for (const f of this.u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0);
-    const fl = wzfs(this.u.length, tl, l);
-    const out = new u8(tl + fl);
+    const out = wzfo(this.u.length, tl, l);
     for (const f of this.u) {
       wzh(out, bt, f, f.f, f.u, -f.c - 2, l, f.o);
       bt += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), l += f.b;
@@ -3325,7 +3327,7 @@ export function zip(data: AsyncZippable, opts: AsyncZipOptions | FlateCallback, 
   mt(() => { cbd = cb; });
   const cbf = () => {
     const oe = o, cdl = tot - o;
-    const out = new u8(tot + wzfs(files.length, cdl, oe));
+    const out = wzfo(files.length, cdl, oe);
     tot = 0;
     for (let i = 0; i < slft; ++i) {
       const f = files[i];
@@ -3425,7 +3427,7 @@ export function zipSync(data: Zippable, opts?: ZipOptions) {
     tot += 76 + 2 * (s + exl) + (ms || 0) + l;
   }
   const oe = o, cdl = tot - o;
-  const out = new u8(tot + wzfs(files.length, cdl, oe));
+  const out = wzfo(files.length, cdl, oe);
   for (let i = 0; i < files.length; ++i) {
     const f = files[i];
     wzh(out, f.o, f, f.f, f.u, f.c.length);
