@@ -2853,43 +2853,41 @@ const wbytes8 = (d: Uint8Array, b: number, v: number) => {
 const wzfs = (c: number, d: number, e: number) =>
   c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
 
-// write zip footer (end of central directory); returns bytes written
+// write zip footer (end of central directory)
 const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number) => {
   const z = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF;
 
   if (z) {
-    const zb = b;
-
     // ZIP64 end of central directory record
     wbytes(o, b, 0x6064B50);          // signature
     wbytes8(o, b + 4, 44);            // size of remaining record
     wbytes(o, b + 12, 45);            // version made by / needed
     wbytes(o, b + 14, 45);
-    wbytes(o, b + 16, 0);             // disk number
-    wbytes(o, b + 20, 0);             // disk with central directory
+    // wbytes(o, b + 16, 0);          // disk number
+    // wbytes(o, b + 20, 0);          // disk with central directory
     wbytes8(o, b + 24, c);            // entries on this disk
     wbytes8(o, b + 32, c);            // total entries
     wbytes8(o, b + 40, d);            // central directory size
     wbytes8(o, b + 48, e);            // central directory offset
-    b += 56;
 
     // ZIP64 end of central directory locator
-    wbytes(o, b, 0x7064B50);          // signature
-    wbytes(o, b + 4, 0);              // disk with ZIP64 EOCD
-    wbytes8(o, b + 8, zb);            // offset of ZIP64 EOCD
-    wbytes(o, b + 16, 1);             // total disks
-    b += 20;
+    wbytes(o, b + 56, 0x7064B50);     // signature
+    // wbytes(o, b + 60, 0);          // disk with ZIP64 EOCD
+    wbytes8(o, b + 64, b);           // offset of ZIP64 EOCD
+    wbytes(o, b + 72, 1);             // total disks
+    b += 76;
+    c = 0xFFFF;
+    d = e = 0xFFFFFFFF;
   }
 
   // classic EOCD, with sentinels when ZIP64 is used
   wbytes(o, b, 0x6054B50);            // skip disk
-  wbytes(o, b + 4, 0);                // disk fields
-  wbytes(o, b + 8, z ? 0xFFFF : c);
-  wbytes(o, b + 10, z ? 0xFFFF : c);
-  wbytes(o, b + 12, z ? 0xFFFFFFFF : d);
-  wbytes(o, b + 16, z ? 0xFFFFFFFF : e);
-  wbytes(o, b + 20, 0);               // comment length
-  return z ? 98 : 22;
+  // wbytes(o, b + 4, 0);             // disk fields
+  wbytes(o, b + 8, c);
+  wbytes(o, b + 10, c);
+  wbytes(o, b + 12, d);
+  wbytes(o, b + 16, e);
+  // wbytes(o, b + 20, 0);               // comment length
 }
 
 /**
