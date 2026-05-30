@@ -13,8 +13,12 @@ npm i fflate
 ```js
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate'
 
-const compressed = zipSync(strToU8('Hello world!'))
-const text = strFromU8(unzipSync(compressed))
+const archive = zipSync({
+  'hello.txt': strToU8('Hello world!')
+})
+
+const files = unzipSync(archive)
+const text = strFromU8(files['hello.txt'])
 console.log(text) // 'Hello world!'
 ```
 
@@ -80,12 +84,12 @@ import * as fflate from 'fflate'
 
 | If you want to... | Use this |
 | --- | --- |
-| Create / read a `.zip` archive | `zipSync()` / `zip()` · `unzipSync()` / `unzip()` |
+| Create / read a `.zip` archive with one or more files | `zipSync()` / `zip()` · `unzipSync()` / `unzip()` |
 | Create / read a `.gz` file | `gzipSync()` / `gzip()` · `gunzipSync()` / `gunzip()` |
 | Read a `.tar.gz` file | `gunzipSync()` / `gunzip()`, then a TAR parser — `fflate` does not parse TAR |
 | Create / read Zlib data | `zlibSync()` / `zlib()` · `unzlibSync()` / `unzlib()` |
 | Create / read raw DEFLATE data | `deflateSync()` / `deflate()` · `inflateSync()` / `inflate()` |
-| Compress one buffer with a sensible default | `compressSync()` / `compress()` *(outputs GZIP)* |
+| Compress one unnamed byte buffer with a sensible default | `compressSync()` / `compress()` *(outputs GZIP)* |
 | Decompress data of unknown format | `decompressSync()` / `decompress()` *(GZIP, Zlib, or DEFLATE)* |
 | Process data piece by piece | `Gzip`, `Gunzip`, `Deflate`, `Inflate`, `Zip`, `Unzip` classes |
 | Convert strings ↔ bytes | `strToU8()` / `strFromU8()` |
@@ -103,7 +107,9 @@ import * as fflate from 'fflate'
 
 ---
 
-## Basic usage
+## Single-stream basics
+
+Use these when you have one unnamed byte stream, such as a text payload, API response, or `.gz` file. For named files or folders, use [ZIP archives](#zip-archives).
 
 Compression APIs operate on `Uint8Array` (Node.js `Buffer`s work natively).
 
@@ -475,7 +481,7 @@ URL.revokeObjectURL(a.href)
 <!-- or -->
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js"></script>
 <script>
-  const compressed = fflate.gzipSync(fflate.strToU8('Hello!'))
+  const archive = fflate.zipSync({ 'hello.txt': fflate.strToU8('Hello!') })
 </script>
 ```
 
