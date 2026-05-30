@@ -14,18 +14,18 @@ Built for projects that need speed, small bundles, and broad format support.
 
 | Feature | `pako` | `tiny-inflate` | `UZIP.js` | `fflate` |
 | --- | --- | --- | --- | --- |
-| Decompression | ✔ | ✔ | ✔ | ✔ |
-| Compression | ✔ | ❌ | ✔ | ✔ |
-| ZIP archives | ❌ | ❌ | ✔ | ✔ |
-| GZIP | ✔ | ❌ | ❌ | ✔ |
-| Zlib | ✔ | ❌ | ❌ | ✔ |
-| Streaming APIs | ✔ | ❌ | ❌ | ✔ |
-| Async / worker APIs | ❌ | ❌ | ❌ | ✔ |
-| Streaming ZIP APIs | ❌ | ❌ | ❌ | ✔ |
-| Files up to 4GB | ✔ | ❌ | ❌ | ✔ |
-| Recovers cleanly from errors | ✔ | ❌ | ❌ | ✔ |
-| Dictionary support | ✔ | ❌ | ❌ | ✔ |
-| ES modules | ❌ | ❌ | ❌ | ✔ |
+| Decompression | ✅ | ✅ | ✅ | ✅ |
+| Compression | ✅ | ❌ | ✅ | ✅ |
+| ZIP archives | ❌ | ❌ | ✅ | ✅ |
+| GZIP | ✅ | ❌ | ❌ | ✅ |
+| Zlib | ✅ | ❌ | ❌ | ✅ |
+| Streaming APIs | ✅ | ❌ | ❌ | ✅ |
+| Async / worker APIs | ❌ | ❌ | ❌ | ✅ |
+| Streaming ZIP APIs | ❌ | ❌ | ❌ | ✅ |
+| Files up to 4GB | ✅ | ❌ | ❌ | ✅ |
+| Recovers cleanly from errors | ✅ | ❌ | ❌ | ✅ |
+| Dictionary support | ✅ | ❌ | ❌ | ✅ |
+| ES modules | ❌ | ❌ | ❌ | ✅ |
 
 **Performance & size**
 
