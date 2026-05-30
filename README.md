@@ -12,18 +12,18 @@ If you are new to `fflate`, start with [What should I use?](#what-should-i-use) 
 
 | Feature | `pako` | `tiny-inflate` | `UZIP.js` | `fflate` |
 | --- | --- | --- | --- | --- |
-| Decompression | ✔ | ✔ | ✔ | ✔ |
-| Compression | ✔ | ❌ | ✔ | ✔ |
-| ZIP archives | ❌ | ❌ | ✔ | ✔ |
-| GZIP | ✔ | ❌ | ❌ | ✔ |
-| Zlib | ✔ | ❌ | ❌ | ✔ |
-| Streaming APIs | ✔ | ❌ | ❌ | ✔ |
-| Async / worker APIs | ❌ | ❌ | ❌ | ✔ |
-| Streaming ZIP APIs | ❌ | ❌ | ❌ | ✔ |
-| Files up to 4GB | ✔ | ❌ | ❌ | ✔ |
-| Recovers cleanly from errors | ✔ | ❌ | ❌ | ✔ |
-| Dictionary support | ✔ | ❌ | ❌ | ✔ |
-| ES modules | ❌ | ❌ | ❌ | ✔ |
+| Decompression | ✅ | ✅ | ✅ | ✅ |
+| Compression | ✅ | ❌ | ✅ | ✅ |
+| ZIP archives | ❌ | ❌ | ✅ | ✅ |
+| GZIP | ✅ | ❌ | ❌ | ✅ |
+| Zlib | ✅ | ❌ | ❌ | ✅ |
+| Streaming APIs | ✅ | ❌ | ❌ | ✅ |
+| Async / worker APIs | ❌ | ❌ | ❌ | ✅ |
+| Streaming ZIP APIs | ❌ | ❌ | ❌ | ✅ |
+| Files up to 4GB | ✅ | ❌ | ❌ | ✅ |
+| Recovers cleanly from errors | ✅ | ❌ | ❌ | ✅ |
+| Dictionary support | ✅ | ❌ | ❌ | ✅ |
+| ES modules | ❌ | ❌ | ❌ | ✅ |
 
 `fflate` is often faster than `pako`, smaller than most alternatives, and can be tree-shaken so you only ship the features you use.
 
