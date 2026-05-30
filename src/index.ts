@@ -2877,7 +2877,7 @@ const wzfo = (c: number, d: number, e: number, k: number) => {
  *           Defaults to `b`, which is correct when `o` starts at archive offset 0
  *           as in zip()/zipSync(). Streaming Zip.e() must pass `e + d`.
  */
-const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number, bo: number = b) => {
+const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number, bo: number) => {
   const z = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF;
 
   if (z) {
@@ -3369,7 +3369,7 @@ export function zip(data: AsyncZippable, opts: AsyncZipOptions | FlateCallback, 
         return cbd(e, null);
       }
     }
-    wzf(out, o, files.length, cdl, oe);
+    wzf(out, o, files.length, cdl, oe, o);
     cbd(null, out);
   }
   if (!lft) cbf();
@@ -3462,7 +3462,7 @@ export function zipSync(data: Zippable, opts?: ZipOptions) {
     out.set(f.c, f.o + badd);
     wzh(out, o, f, f.f, f.u, f.c.length, f.o, f.m), o += 16 + badd + (f.m ? f.m.length : 0);
   }
-  wzf(out, o, files.length, cdl, oe);
+  wzf(out, o, files.length, cdl, oe, o);
   return out;
 }
 
