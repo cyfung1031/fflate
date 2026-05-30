@@ -2882,22 +2882,22 @@ const wzf = (o: Uint8Array, b: number, c: number, d: number, e: number, bo: numb
 
   if (z) {
     // ZIP64 end of central directory record
-    wbytes(o, b, 0x6064B50);          // signature
-    wbytes8(o, b + 4, 44);            // size of remaining record
-    wbytes(o, b + 12, 45);            // version made by / needed
-    wbytes(o, b + 14, 45);
-    // wbytes(o, b + 16, 0);          // disk number
-    // wbytes(o, b + 20, 0);          // disk with central directory
-    wbytes8(o, b + 24, c);            // entries on this disk
-    wbytes8(o, b + 32, c);            // total entries
-    wbytes8(o, b + 40, d);            // central directory size
-    wbytes8(o, b + 48, e);            // central directory offset
+    wbytes(o, b, 0x6064B50);          // signature <32-bit>
+    wbytes(o, b + 4, 44);             // size of remaining record <64-bit>
+    // wbytes(o, b + 8, 0);
+    wbytes(o, b + 12, 0x2D002D);       // version made by / needed <32-bit> = 45 | (45 << 16)
+    // wbytes(o, b + 16, 0);          // disk number <32-bit>
+    // wbytes(o, b + 20, 0);          // disk with central directory <32-bit>
+    wbytes8(o, b + 24, c);            // entries on this disk <64-bit>
+    wbytes8(o, b + 32, c);            // total entries <64-bit>
+    wbytes8(o, b + 40, d);            // central directory size <64-bit>
+    wbytes8(o, b + 48, e);            // central directory offset <64-bit>
 
     // ZIP64 end of central directory locator
-    wbytes(o, b + 56, 0x7064B50);     // signature
-    // wbytes(o, b + 60, 0);          // disk with ZIP64 EOCD
-    wbytes8(o, b + 64, bo);           // offset of ZIP64 EOCD (absolute archive offset)
-    wbytes(o, b + 72, 1);             // total disks
+    wbytes(o, b + 56, 0x7064B50);     // signature <32-bit>
+    // wbytes(o, b + 60, 0);          // disk with ZIP64 EOCD <32-bit>
+    wbytes8(o, b + 64, bo);           // offset of ZIP64 EOCD (absolute archive offset) <64-bit>
+    wbytes(o, b + 72, 1);             // total disks <32-bit>
     b += 76;
     c = 0xFFFF;
     d = e = 0xFFFFFFFF;
@@ -3288,20 +3288,20 @@ export class Zip {
 
   private e() {
     const u = this.u;
-    let o2 = 0, s2 = 0, o1 = 0, s1 = 0;
-    for (const f of u) s1 += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), o1 += f.b;
+    let p = 0, bt = 0, l = 0, tl = 0;
+    for (const f of u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), l += f.b;
     // Streaming Zip has already emitted local headers + file data, so allocate
-    // only central directory + footer. o1 is still passed so wzfo can decide
+    // only central directory + footer. `l` is still passed so wzfo can decide
     // whether ZIP64 is needed due to centralDirectoryOffset overflow.
-    const out = wzfo(u.length, s1, o1, s1); // k = s1 for streaming
-    for (const f of u) s2 = wzh(out, s2, f, f.f, f.u, -f.c - 2, o2, f.o), o2 += f.b;
-    // o1/o2 = centralDirectoryOffset: absolute archive offset where this final
+    const out = wzfo(u.length, tl, l, tl); // k = `tl` for streaming
+    for (const f of u) bt = wzh(out, bt, f, f.f, f.u, -f.c - 2, p, f.o), p += f.b;
+    // l/p = centralDirectoryOffset: absolute archive offset where this final
     //         chunk's central directory starts.
-    // s1    = predicted centralDirectorySize used for allocation.
-    // s2    = actual centralDirectorySize, i.e. write cursor after writing all
+    // tl    = predicted centralDirectorySize used for allocation.
+    // bt    = actual centralDirectorySize, i.e. write cursor after writing all
     //         central directory entries into this final chunk.
-    // o2+s2 = absolute archive offset of ZIP64 EOCD, used by the ZIP64 locator.
-    wzf(out, s2, u.length, s2, o2, o2 + s2);
+    // p+bt = absolute archive offset of ZIP64 EOCD, used by the ZIP64 locator.
+    wzf(out, bt, u.length, bt, p, p + bt);
     this.ondata(null, out, true);
     this.d = 2;
   }
