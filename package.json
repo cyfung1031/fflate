@@ -87,15 +87,15 @@
     "non-blocking"
   ],
   "scripts": {
-    "build": "npm run build:lib && npm run build:docs && npm run build:demo",
+    "build": "pnpm run build:lib && pnpm run build:docs && pnpm run build:demo",
     "script": "node -r ts-node/register scripts/$SC.ts",
-    "build:lib": "tsc && tsc --project tsconfig.esm.json && npm run build:rewrite && npm run build:umd",
-    "build:umd": "SC=buildUMD npm run script",
-    "build:rewrite": "SC=rewriteBuilds npm run script",
-    "build:demo": "tsc --project tsconfig.demo.json && parcel build demo/index.html --no-cache --public-url \"./\" && SC=cpGHPages npm run script",
+    "build:lib": "tsc && tsc --project tsconfig.esm.json && pnpm run build:rewrite && pnpm run build:umd",
+    "build:umd": "SC=buildUMD pnpm run script",
+    "build:rewrite": "SC=rewriteBuilds pnpm run script",
+    "build:demo": "tsc --project tsconfig.demo.json && parcel build demo/index.html --no-cache --public-url \"./\" && SC=cpGHPages pnpm run script",
     "build:docs": "typedoc --plugin typedoc-plugin-markdown --hideBreadcrumbs --readme none --disableSources --excludePrivate --excludeProtected --expandParameters --githubPages false --out docs/ src/index.ts",
     "test": "TS_NODE_PROJECT=test/tsconfig.json uvu -b -r ts-node/register test",
-    "prepack": "npm run build && npm run test"
+    "prepack": "pnpm run build && pnpm run test"
   },
   "devDependencies": {
     "@parcel/service-worker": "^2.9.3",
