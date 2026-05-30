@@ -3288,20 +3288,20 @@ export class Zip {
 
   private e() {
     const u = this.u;
-    let p = 0, bt = 0, l = 0, tl = 0;
-    for (const f of u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), l += f.b;
+    let bt = 0, l = 0, tl = 0, p = 0;
+    for (const f of u) tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), p += f.b;
     // Streaming Zip has already emitted local headers + file data, so allocate
-    // only central directory + footer. `l` is still passed so wzfo can decide
+    // only central directory + footer. `p` is still passed so wzfo can decide
     // whether ZIP64 is needed due to centralDirectoryOffset overflow.
-    const out = wzfo(u.length, tl, l, tl); // k = `tl` for streaming
-    for (const f of u) bt = wzh(out, bt, f, f.f, f.u, -f.c - 2, p, f.o), p += f.b;
+    const out = wzfo(u.length, tl, p, tl); // k = `tl` for streaming
+    for (const f of u) bt = wzh(out, bt, f, f.f, f.u, -f.c - 2, l, f.o), l += f.b;
     // l/p = centralDirectoryOffset: absolute archive offset where this final
     //         chunk's central directory starts.
     // tl    = predicted centralDirectorySize used for allocation.
     // bt    = actual centralDirectorySize, i.e. write cursor after writing all
     //         central directory entries into this final chunk.
-    // p+bt = absolute archive offset of ZIP64 EOCD, used by the ZIP64 locator.
-    wzf(out, bt, u.length, bt, p, p + bt);
+    // l+bt = absolute archive offset of ZIP64 EOCD, used by the ZIP64 locator.
+    wzf(out, bt, u.length, bt, l, l + bt);
     this.ondata(null, out, true);
     this.d = 2;
   }
