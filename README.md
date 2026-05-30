@@ -4,7 +4,21 @@ High-performance compression and decompression in an 8kB package.
 
 `fflate` (fast flate) is a tiny, ultra-fast, pure JavaScript library for **DEFLATE, GZIP, Zlib, and ZIP** data. It runs in browsers, Node.js, Deno, and other JavaScript runtimes, and is fully interoperable with standard compression tools in both directions.
 
-New to `fflate`? Jump to [What should I use?](#what-should-i-use) and copy the closest example.
+## Start here
+
+```sh
+npm i fflate
+```
+
+```js
+import { gzipSync, gunzipSync, strToU8, strFromU8 } from 'fflate'
+
+const compressed = gzipSync(strToU8('Hello world!'))
+const text = strFromU8(gunzipSync(compressed))
+console.log(text) // 'Hello world!'
+```
+
+Need something else? Jump to **[What should I use?](#what-should-i-use)** for the full API map, or **[Why fflate?](#why-fflate)** for benchmarks and bundle sizes.
 
 ---
 
@@ -68,6 +82,7 @@ import * as fflate from 'fflate'
 | --- | --- |
 | Create / read a `.zip` archive | `zipSync()` / `zip()` · `unzipSync()` / `unzip()` |
 | Create / read a `.gz` file | `gzipSync()` / `gzip()` · `gunzipSync()` / `gunzip()` |
+| Read a `.tar.gz` file | `gunzipSync()` / `gunzip()`, then a TAR parser — `fflate` does not parse TAR |
 | Create / read Zlib data | `zlibSync()` / `zlib()` · `unzlibSync()` / `unzlib()` |
 | Create / read raw DEFLATE data | `deflateSync()` / `deflate()` · `inflateSync()` / `inflate()` |
 | Compress one buffer with a sensible default | `compressSync()` / `compress()` *(outputs GZIP)* |
@@ -196,7 +211,13 @@ const files = unzipSync(readFileSync('./archive.zip'), {
 **Async** — runs in parallel across threads, up to 3x faster (most noticeably for multiple large files):
 
 ```js
-import { zip, unzip, strFromU8 } from 'fflate'
+import { zip, unzip, strToU8, strFromU8 } from 'fflate'
+import { readFileSync } from 'node:fs'
+
+const files = {
+  'hello.txt': strToU8('Hello world!'),
+  'images/photo.png': readFileSync('./photo.png')
+}
 
 const zipData = await new Promise((resolve, reject) =>
   zip(files, (err, data) => (err ? reject(err) : resolve(data))))
