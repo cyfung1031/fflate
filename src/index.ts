@@ -1185,7 +1185,7 @@ const b4 = (d: Uint8Array, b: number) => (d[b] | (d[b + 1] << 8) | (d[b + 2] << 
 // read 8 bytes
 const b8 = (d: Uint8Array, b: number) => b4(d, b) + (b4(d, b + 4) * 4294967296);
 
-// write bytes, assumes zero-filled output
+// write 32-bit little-endian integer, assumes zero-filled output
 const wbytes = (d: Uint8Array, b: number, v: number) => {
   for (; v; ++b) d[b] = v, v >>>= 8;
 }
