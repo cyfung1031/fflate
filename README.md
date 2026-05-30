@@ -11,10 +11,10 @@ npm i fflate
 ```
 
 ```js
-import { gzipSync, gunzipSync, strToU8, strFromU8 } from 'fflate'
+import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate'
 
-const compressed = gzipSync(strToU8('Hello world!'))
-const text = strFromU8(gunzipSync(compressed))
+const compressed = zipSync(strToU8('Hello world!'))
+const text = strFromU8(unzipSync(compressed))
 console.log(text) // 'Hello world!'
 ```
 
@@ -208,7 +208,7 @@ const files = unzipSync(readFileSync('./archive.zip'), {
 })
 ```
 
-**Async** — runs in parallel across threads, up to 3x faster (most noticeably for multiple large files):
+**Async** — runs in parallel across threads, up to 3x faster (most noticeably for multiple large files). The callback receives `(err, data)`:
 
 ```js
 import { zip, unzip, strToU8, strFromU8 } from 'fflate'
@@ -219,19 +219,31 @@ const files = {
   'images/photo.png': readFileSync('./photo.png')
 }
 
-const zipData = await new Promise((resolve, reject) =>
-  zip(files, (err, data) => (err ? reject(err) : resolve(data))))
+// Create a .zip in parallel across threads
+zip(files, (err, data) => {
+  if (err) throw err
+  // `data` is a complete .zip Uint8Array — write it to disk, send it, etc.
 
-const out = await new Promise((resolve, reject) =>
-  unzip(zipData, (err, data) => (err ? reject(err) : resolve(data))))
-console.log(strFromU8(out['hello.txt']))
+  // Read it back (also parallelized); `unzipped` maps each path to a Uint8Array
+  unzip(data, (err, unzipped) => {
+    if (err) throw err
+    console.log(strFromU8(unzipped['hello.txt'])) // 'Hello world!'
+  })
+})
 ```
+
+> 💡 Prefer `async`/`await`? Wrap any async call in a Promise:
+> ```js
+> const data = await new Promise((resolve, reject) =>
+>   zip(files, (err, data) => (err ? reject(err) : resolve(data))))
+> ```
 
 > ⚠️ `unzip` is parallelized (often faster than `unzipSync`) and is the **only** async function that does not support the `consume` option.
 
 **Cancel** — every async function returns a termination function. Calling it aborts the work and suppresses the callback:
 
 ```js
+// any async call returns a terminate function (here, the running unzip above)
 const terminate = unzip(zipData, (err, files) => { /* ... */ })
 terminate()
 ```
@@ -282,17 +294,31 @@ Use streams when data arrives in chunks or to bound memory.
 * **ZIP and async streams** use an `(err, chunk, final)` handler.
 * Set the handler in the constructor or later via `stream.ondata`. Pass `true` to `push()` only on the last chunk.
 
-**Compression / decompression**
+**Compression / decompression** — chunks arrive in the handler; collect them and assemble the result when `final` is `true`:
 
 ```js
-import { Gzip, Gunzip } from 'fflate' // swap for Decompress to auto-detect the format
+import { Gzip, gunzipSync, strToU8, strFromU8 } from 'fflate' // use Gunzip to decompress, or Decompress to auto-detect
 
+const chunks = []
 const gzip = new Gzip((chunk, final) => {
-  // handle chunk; final === true on the last one
+  chunks.push(chunk)                 // collect each compressed chunk
+  if (final) {                       // final === true on the last chunk
+    const compressed = concatChunks(chunks)
+    console.log(strFromU8(gunzipSync(compressed))) // 'first part last part'
+  }
 })
 
-gzip.push(chunk1)
-gzip.push(lastChunk, true)
+gzip.push(strToU8('first part '))
+gzip.push(strToU8('last part'), true) // pass true only on the final chunk
+
+// Join an array of Uint8Array chunks into one (works in any runtime)
+function concatChunks(chunks) {
+  const size = chunks.reduce((n, c) => n + c.length, 0)
+  const out = new Uint8Array(size)
+  let offset = 0
+  for (const c of chunks) { out.set(c, offset); offset += c.length }
+  return out
+}
 ```
 
 **Text** — chain `EncodeUTF8`/`DecodeUTF8` for text arriving in chunks (chaining = push to the next stream from the previous handler):
@@ -300,7 +326,7 @@ gzip.push(lastChunk, true)
 ```js
 import { EncodeUTF8, DecodeUTF8, Gzip, Gunzip } from 'fflate'
 
-const decoder = new DecodeUTF8((text, final) => console.log(text))
+const decoder = new DecodeUTF8((text, final) => console.log(text)) // logs 'Hello ' then 'world!'
 const gunzip  = new Gunzip((chunk, final) => decoder.push(chunk, final))
 const gzip    = new Gzip((chunk, final) => gunzip.push(chunk, final))
 const encoder = new EncodeUTF8((data, final) => gzip.push(data, final))
@@ -312,23 +338,31 @@ encoder.push('world!', true)
 **ZIP creation** — call `zip.add(stream)` before pushing to that stream, and `zip.end()` once every file is finalized:
 
 ```js
-import { Zip, ZipDeflate, ZipPassThrough, strToU8 } from 'fflate'
+import { Zip, ZipDeflate, ZipPassThrough, unzipSync, strToU8 } from 'fflate'
 
+const chunks = []
 const zip = new Zip((err, chunk, final) => {
   if (err) throw err
-  // write chunk to destination
+  chunks.push(chunk)                   // collect the archive's bytes as they're produced
+  if (final) {                         // the .zip is complete
+    const archive = concatChunks(chunks) // now write it to disk or send it over the network
+    console.log(Object.keys(unzipSync(archive))) // ['hello.txt', 'photo.png']
+  }
 })
 
+// Add each file's stream BEFORE pushing to it
 const textFile = new ZipDeflate('hello.txt', { level: 9 })
 zip.add(textFile)
 textFile.push(strToU8('Hello world!'), true)
 
 // Already-compressed file: ZipPassThrough stores it without recompressing
+const pngData = new Uint8Array([137, 80, 78, 71]) // your file's bytes
 const pngFile = new ZipPassThrough('photo.png')
 zip.add(pngFile)
 pngFile.push(pngData, true)
 
-zip.end()
+zip.end() // finalize — required for a valid .zip
+// (concatChunks is the helper from the Compression / decompression example above)
 ```
 
 `ZipPassThrough` behaves like `ZipDeflate` with `level: 0` but tree-shakes better. Use `AsyncZipDeflate` to compress files off the main thread; async ZIP streams compress multiple files in parallel. ZIP streams take streams as both input and output, so you can plug in custom algorithms [defined in the ZIP spec](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT) (section 4.4.5) — [feel free to ask](https://github.com/101arrowz/fflate/discussions) for help.
@@ -336,20 +370,29 @@ zip.end()
 **ZIP extraction** — for whole archives, prefer `unzip()` / `unzipSync()`. Use `Unzip` for file-by-file processing. `register()` a decompression algorithm before starting any compressed file; only files you `.start()` consume resources.
 
 ```js
-import { Unzip, UnzipInflate } from 'fflate'
+import { Unzip, UnzipInflate, zipSync, strToU8, strFromU8 } from 'fflate'
 
 const unzip = new Unzip(file => {
-  if (!file.name.endsWith('.txt')) return // skip
+  if (!file.name.endsWith('.txt')) return // skip files you don't want
+
+  const chunks = []
   file.ondata = (err, chunk, final) => {
     if (err) throw err
-    // process chunk; final === true when this file is done
+    chunks.push(chunk)                  // collect this file's decompressed chunks
+    if (final) {                        // this file is complete
+      console.log(file.name, strFromU8(concatChunks(chunks)))
+    }
   }
-  file.start()
+  file.start() // only files you start() are decompressed
 })
 
-unzip.register(UnzipInflate) // DEFLATE — almost always what ZIPs use
-unzip.push(chunk1)
-unzip.push(lastChunk, true)  // true marks the end of the archive input
+unzip.register(UnzipInflate) // enables DEFLATE — what ZIPs almost always use
+
+// A sample archive to extract. Normally these bytes arrive from a file or network
+// stream — push each chunk as it comes, passing true on the final one.
+const archive = zipSync({ 'hello.txt': strToU8('Hello world!') })
+unzip.push(archive, true)
+// (concatChunks is the helper from the Compression / decompression example above)
 ```
 
 `UnzipInflate` handles DEFLATE; register custom algorithms to add formats like BZIP2 or LZMA. Stored (uncompressed) ZIPs need no registration. Use `AsyncUnzipInflate` for off-main-thread DEFLATE. To know when all wanted files finish, count the ones you `start()` and wait for each `final`.
@@ -365,17 +408,27 @@ unzip.push(lastChunk, true)  // true marks the end of the archive input
 Streaming off the main thread, without blocking the UI.
 
 ```js
-import { AsyncGzip } from 'fflate'
+import { AsyncGzip, gunzipSync, strToU8, strFromU8 } from 'fflate'
 
+const chunks = []
 const gzip = new AsyncGzip({ level: 9, mem: 12, filename: 'hello.txt' })
 gzip.ondata = (err, chunk, final) => {
   if (err) return console.error(err)
-  console.log(chunk, final)
+  chunks.push(chunk)                 // collect chunks (same pattern as sync streams)
+  if (final) {                       // the worker cleans up automatically after the final chunk
+    const compressed = concatChunks(chunks)
+    console.log(strFromU8(gunzipSync(compressed))) // 'first part last part'
+  }
 }
 
-gzip.push(chunk)
-gzip.push(lastChunk, true)
-gzip.terminate() // free the worker if you abandon the stream early
+gzip.push(strToU8('first part '))
+gzip.push(strToU8('last part'), true)
+
+// To CANCEL before completion, call terminate(): it kills the worker immediately
+// and suppresses pending callbacks. Do NOT call it as part of normal completion —
+// doing so right after the final push races the worker and drops the last chunk.
+// gzip.terminate()
+// (concatChunks is the helper from the Streaming section above)
 ```
 
 > ⚠️ **How async streams differ**
@@ -387,6 +440,8 @@ gzip.terminate() // free the worker if you abandon the stream early
 
 ```js
 import { zlib } from 'fflate'
+
+const aMassiveFile = /* your large input Uint8Array */ new Uint8Array(1_000_000)
 
 zlib(aMassiveFile, { consume: true, level: 9 }, (err, data) => { /* ... */ })
 // aMassiveFile is now unusable, but no copy was made
