@@ -479,6 +479,8 @@ ZIP streams are highly extensible: they take streams as both input and output, a
 
 ### Streaming ZIP extraction
 
+For whole-archive extraction, prefer `unzip()` or `unzipSync()`. `Unzip` is for streaming file-by-file processing: each file stream's `final` value marks that file complete, and passing `true` to the last `unzip.push(chunk, true)` tells the parser that the archive input is complete. If you need to know when all selected files are done, count the files you start and wait for each selected file stream's `final` callback.
+
 ```js
 import { Unzip, UnzipInflate } from 'fflate'
 
