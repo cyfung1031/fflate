@@ -2849,7 +2849,7 @@ const wbytes8 = (d: Uint8Array, b: number, v: number) => {
   wbytes(d, b + 4, Math.floor(v / 0x100000000));
 }
 
-// ZIP footer length needed for EOCD or ZIP64 EOCD + locator + EOCD
+// allocate ZIP output with enough space for EOCD or ZIP64 EOCD + locator + EOCD
 const wzfo = (c: number, d: number, e: number) => {
   const fl = c > 0xFFFF || d > 0xFFFFFFFF || e > 0xFFFFFFFF ? 98 : 22;
   const out = new u8(d + e + fl);
